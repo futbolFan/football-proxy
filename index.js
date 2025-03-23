@@ -1,6 +1,5 @@
 const express = require('express');
-const axios = require('axios');
-const cheerio = require('cheerio');
+const puppeteer = require('puppeteer');
 const app = express();
 
 const port = process.env.PORT || 3000;
@@ -18,26 +17,32 @@ app.get('/api/matches', async (req, res) => {
     return res.status(400).json({ error: 'Debes enviar al menos una URL' });
   }
 
+  let browser;
   try {
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+
     const matchesData = await Promise.all(
       urls.map(async (matchUrl) => {
         try {
-          const { data } = await axios.get(matchUrl.trim(), {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
+          const page = await browser.newPage();
+          await page.goto(matchUrl, { waitUntil: 'networkidle2' });
+
+          const data = await page.evaluate(() => {
+            const homeScore = document.querySelector('.game-score_competitor_score_container__HZgTq')?.textContent.trim() || '0';
+            const awayScore = document.querySelector('.game-score_away_competitor_score_container__zk7s2')?.textContent.trim() || '0';
+            const score = `${homeScore}-${awayScore}`;
+            const gameTime = document.querySelector('.game-center-header-status_live__Db99m')?.textContent.trim() || 'No disponible';
+            return { score, gameTime };
           });
 
-          const $ = cheerio.load(data);
-          const homeScore = $('.game-score_competitor_score_container__HZgTq').first().text().trim() || '0';
-const awayScore = $('.game-score_away_competitor_score_container__zk7s2').text().trim() || '0';
-const score = `${homeScore}-${awayScore}`;
-const gameTime = $('.game-center-header-status_live__Db99m').text().trim() || 'No disponible';
-
+          await page.close();
           return {
             url: matchUrl,
-            score,
-            gameTime
+            score: data.score,
+            gameTime: data.gameTime
           };
         } catch (error) {
           return {
@@ -49,9 +54,11 @@ const gameTime = $('.game-center-header-status_live__Db99m').text().trim() || 'N
       })
     );
 
+    await browser.close();
     res.json(matchesData);
   } catch (error) {
     console.error('Error general:', error.message);
+    if (browser) await browser.close();
     res.status(500).json({ error: 'Error al procesar los partidos' });
   }
 });
