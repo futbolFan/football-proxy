@@ -29,8 +29,10 @@ app.get('/api/matches', async (req, res) => {
           });
 
           const $ = cheerio.load(data);
-          const score = $('.live-score').text().trim() || '0-0';
-          const gameTime = $('.match-time').text().trim() || 'No disponible';
+          const homeScore = $('.game-score_competitor_score_container__HZgTq').first().text().trim() || '0';
+const awayScore = $('.game-score_away_competitor_score_container__zk7s2').text().trim() || '0';
+const score = `${homeScore}-${awayScore}`;
+const gameTime = $('.game-center-header-status_live__Db99m').text().trim() || 'No disponible';
 
           return {
             url: matchUrl,
