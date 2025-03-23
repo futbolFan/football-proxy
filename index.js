@@ -22,7 +22,7 @@ app.get('/api/matches', async (req, res) => {
   try {
     console.log('Lanzando Puppeteer con Chromium...');
     browser = await puppeteer.launch({
-      args: chromium.args,
+      args: [...chromium.args, '--disable-images', '--blink-settings=imagesEnabled=false'],
       defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath(),
       headless: chromium.headless
@@ -34,7 +34,19 @@ app.get('/api/matches', async (req, res) => {
         try {
           console.log(`Visitando ${matchUrl}`);
           page = await browser.newPage();
-          await page.goto(matchUrl, { waitUntil: 'networkidle2', timeout: 60000 }); // Aumentar a 60 segundos
+
+          // Bloquear imágenes para acelerar la carga
+          await page.setRequestInterception(true);
+          page.on('request', (req) => {
+            if (req.resourceType() === 'image' || req.resourceType() === 'media') {
+              req.abort();
+            } else {
+              req.continue();
+            }
+          });
+
+          await page.goto(matchUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+          await page.waitForSelector('.game-center-header-status_live__Db99m', { timeout: 60000 });
 
           const data = await page.evaluate(() => {
             const homeScore = document.querySelector('.game-score_competitor_score_container__HZgTq')?.textContent.trim() || '0';
@@ -58,7 +70,7 @@ app.get('/api/matches', async (req, res) => {
             gameTime: 'Error'
           };
         } finally {
-          if (page) await page.close(); // Asegurar que la página se cierre siempre
+          if (page) await page.close();
         }
       })
     );
