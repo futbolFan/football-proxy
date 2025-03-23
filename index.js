@@ -11,9 +11,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Nuevo endpoint para varios partidos
 app.get('/api/matches', async (req, res) => {
-  // Obtener la lista de URLs desde el parámetro "urls" (separadas por comas)
   const urls = req.query.urls ? req.query.urls.split(',') : [];
 
   if (urls.length === 0) {
@@ -21,7 +19,6 @@ app.get('/api/matches', async (req, res) => {
   }
 
   try {
-    // Procesar todas las URLs al mismo tiempo
     const matchesData = await Promise.all(
       urls.map(async (matchUrl) => {
         try {
@@ -32,8 +29,6 @@ app.get('/api/matches', async (req, res) => {
           });
 
           const $ = cheerio.load(data);
-
-          // Ajusta estos selectores según el HTML real de 365scores
           const score = $('.live-score').text().trim() || '0-0';
           const gameTime = $('.match-time').text().trim() || 'No disponible';
 
