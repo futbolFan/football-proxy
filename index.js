@@ -1,5 +1,6 @@
 const express = require('express');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
+const chromium = require('@sparticuz/chromium');
 const app = express();
 
 const port = process.env.PORT || 3000;
@@ -19,14 +20,18 @@ app.get('/api/matches', async (req, res) => {
 
   let browser;
   try {
+    console.log('Lanzando Puppeteer con Chromium...');
     browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless
     });
 
     const matchesData = await Promise.all(
       urls.map(async (matchUrl) => {
         try {
+          console.log(`Visitando ${matchUrl}`);
           const page = await browser.newPage();
           await page.goto(matchUrl, { waitUntil: 'networkidle2' });
 
@@ -38,6 +43,7 @@ app.get('/api/matches', async (req, res) => {
             return { score, gameTime };
           });
 
+          console.log(`Datos extraídos de ${matchUrl}:`, data);
           await page.close();
           return {
             url: matchUrl,
@@ -45,6 +51,7 @@ app.get('/api/matches', async (req, res) => {
             gameTime: data.gameTime
           };
         } catch (error) {
+          console.error(`Error en ${matchUrl}:`, error.message);
           return {
             url: matchUrl,
             score: 'Error',
