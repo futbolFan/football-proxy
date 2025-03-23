@@ -30,10 +30,11 @@ app.get('/api/matches', async (req, res) => {
 
     const matchesData = await Promise.all(
       urls.map(async (matchUrl) => {
+        let page;
         try {
           console.log(`Visitando ${matchUrl}`);
-          const page = await browser.newPage();
-          await page.goto(matchUrl, { waitUntil: 'networkidle2' });
+          page = await browser.newPage();
+          await page.goto(matchUrl, { waitUntil: 'networkidle2', timeout: 60000 }); // Aumentar a 60 segundos
 
           const data = await page.evaluate(() => {
             const homeScore = document.querySelector('.game-score_competitor_score_container__HZgTq')?.textContent.trim() || '0';
@@ -44,7 +45,6 @@ app.get('/api/matches', async (req, res) => {
           });
 
           console.log(`Datos extraídos de ${matchUrl}:`, data);
-          await page.close();
           return {
             url: matchUrl,
             score: data.score,
@@ -57,6 +57,8 @@ app.get('/api/matches', async (req, res) => {
             score: 'Error',
             gameTime: 'Error'
           };
+        } finally {
+          if (page) await page.close(); // Asegurar que la página se cierre siempre
         }
       })
     );
